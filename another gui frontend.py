@@ -1,11 +1,11 @@
-from PySimpleGUI.PySimpleGUI import popup_yes_no, theme_background_color, theme_button_color, theme_element_background_color, theme_element_text_color, theme_slider_color, theme_text_color, theme_text_element_background_color
+from PySimpleGUI.PySimpleGUI import popup_yes_no, theme_background_color, theme_button_color, theme_element_text_color, theme_slider_color, theme_text_color, theme_text_element_background_color
 from aitextgen import aitextgen
 from transformers import GPT2Tokenizer
 import torch
 
 import PySimpleGUI as sg
 
-# yoinked from the AID2 repo, stuff to tidy up outputs
+# from the AID2 repo, stuff to tidy up outputs
 def cut_trailing_sentence(text):
     last_punc = max(text.rfind("."), text.rfind("!"), text.rfind("?"))
     if last_punc <= 0:
@@ -32,7 +32,6 @@ def cut_trailing_quotes(text):
         final_ind = text.rfind('"')
         return text[:final_ind]
 
-
 def standardize_punctuation(text):
     text = text.replace("’", "'")
     text = text.replace("`", "'")
@@ -40,7 +39,7 @@ def standardize_punctuation(text):
     text = text.replace("”", '"')
     return text
 
-# and back to my code
+# my code from here
 
 ai = None
 model_name = None
@@ -54,7 +53,7 @@ outlenpen = 1.0
 outtopk = 50
 outtopp = 1.0
 back_memory = ''
-aid_style = False
+aid_style = False # work in progress, currently just prefixes "> You" to the beginning of user input
 
 def context_window():
     print("Opening 'context' window...")
@@ -67,14 +66,13 @@ def context_window():
     ctx_window['-MEMORY-'].set_cursor(cursor_color = 'white')
     return ctx_window
     
-
-def get_context_token_count(contextbox):
+def get_context_token_count(contextbox): #used in the context window, could likely be merged into get_token_count() with a little effort
     print("Updating context token counts...")
     contexttokens = len(tokenizer.encode(contextbox))
     print(str(contexttokens) + " tokens in context box")
     return contexttokens
 
-def get_token_count(inpbox, outbox):
+def get_token_count(inpbox, outbox): #used in main window
     print("Updating token counts...")
     inptokens = len(tokenizer.encode(inpbox))
     print(str(inptokens) + " tokens in input box")
@@ -82,7 +80,7 @@ def get_token_count(inpbox, outbox):
     print(str(outtokens) + " tokens in output box")
     return inptokens, outtokens
 
-
+# generates new text after making sure that back memory, new inputs and old inputs/outputs are formatted correctly
 def generate(new_text, old_text):
     if len(back_memory)>0:
         memory = back_memory + '\n'
@@ -133,7 +131,7 @@ def generate(new_text, old_text):
 def instance_neo(m):
     valid_choice = False
     while valid_choice == False:
-        use_gpu = input("Use GPU? Y/N: ")
+        use_gpu = input("Use GPU? Y/N: ") # requires cuda
         if use_gpu.lower() == "y":
             use_gpu = True
             print("Using GPU. Beware of OOM.")
@@ -145,7 +143,7 @@ def instance_neo(m):
         continue
     valid_choice = False
     while valid_choice == False:
-        use_fp16 = input("Run at half-precision? Y/N: ")
+        use_fp16 = input("Run at half-precision? Y/N: ") # requires using a gpu
         if use_fp16.lower() == "y":
             use_fp16 = True
             print("Using FP16. Expect the occasional random token.")
@@ -212,7 +210,7 @@ while valid_choice == False:
         print("Invalid model.")
     continue
 
-# main window
+# main window, theme code can be very easily swapped for just using the black & white theme instead
 theme_background_color('black')
 theme_text_element_background_color('black')
 theme_button_color('gray')
@@ -235,6 +233,7 @@ main_layout = [  [sg.Text('Yep')],
             [sg.Button('Clear'), sg.Button('Options'), sg.Button('Context'), sg.Text('Input box tokens: 0 / Output box tokens: 0', key = '-TOKENCOUNT-')],
             [sg.Button('Go', size = (8, 4), key = '-GO-'), sg.Frame(title = 'Options', layout = options_layout, visible = opts_visible, background_color = 'black', key = '-OPTIONS-'), sg.Multiline(size = (160, 4), key = '-INPUT-', text_color='white', background_color='black', autoscroll = True, enable_events = True)] ]
 
+# open the main window, do events relating to relevant buttons
 def main_loop():
     global opts_visible
     global outtemp
@@ -325,11 +324,11 @@ def main_loop():
             inptokens, outtokens = get_token_count(values['-INPUT-'].rstrip(), values['-OUTPUT-'].rstrip())
             new_text = 'Input box tokens: ' + str(inptokens) + ' / Output box tokens: ' + str(outtokens)
             print(new_text)
-            main_window['-TOKENCOUNT-'].update(value = new_text)
+            main_window['-TOKENCOUNT-'].update(value = new_text) # unstable for some reason, the text sometimes just shows up as a single /. not sure why
         elif window == cont_win:
             ctxtokens = get_context_token_count(values['-MEMORY-'].rstrip())
             new_text_2 = 'Memory tokens: ' + str(ctxtokens)
             print(new_text_2)
-            cont_win['-CTXTOKENS-'].update(value = new_text_2)
+            cont_win['-CTXTOKENS-'].update(value = new_text_2) # same as main window's token count
         
 main_loop()
